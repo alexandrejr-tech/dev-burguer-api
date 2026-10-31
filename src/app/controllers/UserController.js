@@ -9,7 +9,6 @@ class UserController {
 			name: Yup.string().required(),
 			email: Yup.string().email().required(),
 			password: Yup.string().min(6).required(),
-			admin: Yup.boolean(),
 		});
 
 		try {
@@ -18,7 +17,8 @@ class UserController {
 			return response.status(400).json({ error: err.errors });
 		}
 
-		const { name, email, password, admin } = request.body;
+		// O campo "admin" do corpo é ignorado: o cadastro público nunca cria admin.
+		const { name, email, password } = request.body;
 
 		const existingUser = await User.findOne({
 			where: {
@@ -37,7 +37,7 @@ class UserController {
 			name,
 			email,
 			password_hash,
-			admin,
+			admin: false,
 		});
 
 		return response.status(201).json({
