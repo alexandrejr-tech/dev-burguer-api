@@ -2,20 +2,12 @@ import * as Yup from 'yup'
 import Product from '../models/Product.js';
 import Category from '../models/Category.js';
 import Order from '../schemas/Order.js';
+import { orderProductsSchema } from '../validators/orderProducts.js';
 
 class OrderController {
 	async store(request, response) {
-		const schema = Yup.object({
-			products: Yup.array().required().of(
-                Yup.object({
-                    id: Yup.number().required(),
-                    quantity: Yup.number().required()
-                })
-            )
-		});
-
 		try {
-			schema.validateSync(request.body, { abortEarly: false, strict: true });
+			orderProductsSchema.validateSync(request.body, { abortEarly: false, strict: true });
 		} catch (err) {
 			return response.status(400).json({ error: err.errors });
 		}

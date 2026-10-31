@@ -9,6 +9,7 @@ import authMiddleware from './app/middlewares/auth.js';
 import CategoryController from './app/controllers/CategoryController.js';
 import OrderController from './app/controllers/OrderController.js';
 import CreatePaymentIntentController from './app/controllers/stripe/CreatePaymentIntentController.js'
+import DeliveryFeeController from './app/controllers/DeliveryFeeController.js';
 
 const routes = new Router();
 
@@ -16,6 +17,7 @@ const upload = multer(multerConfig)
 
 routes.post('/users', UserController.store);
 routes.post('/sessions', SessionController.store);
+routes.get('/delivery-fee', DeliveryFeeController.index);
 
 routes.use(authMiddleware);
 
