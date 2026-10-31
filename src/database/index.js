@@ -6,6 +6,12 @@ import databaseConfig from '../config/database.cjs';
 import Product from '../app/models/Product.js';
 import Category from '../app/models/Category.js';
 
+if (!process.env.APP_URL) {
+	throw new Error(
+		'Variável de ambiente APP_URL não definida. Configure-a no arquivo .env (veja o .env.example).',
+	);
+}
+
 const models = [User, Product, Category];
 
 class Database {
