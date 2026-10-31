@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Sequelize } from 'sequelize';
 import mongoose from 'mongoose';
 import User from '../app/models/User.js';
@@ -23,7 +24,7 @@ class Database {
 	}
 
     mongo(){
-        this.mongooseConnection = mongoose.connect('mongodb://localhost:27017/devburguer')
+        this.mongooseConnection = mongoose.connect(process.env.MONGO_URL)
     }
 }
 
