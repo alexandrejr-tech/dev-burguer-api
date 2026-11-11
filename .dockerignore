@@ -1,0 +1,16 @@
+# Dependências são instaladas dentro da imagem, nunca copiadas do PC
+node_modules
+
+# Segredos nunca entram na imagem; as variáveis vêm do compose/Dokploy
+.env
+.env.*
+!.env.example
+
+# Arquivos que não são necessários para rodar a API
+.git
+.gitignore
+*.log
+Dockerfile
+.dockerignore
+README.md
+biome.json

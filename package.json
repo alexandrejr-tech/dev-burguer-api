@@ -22,12 +22,13 @@
     "pg": "^8.20.0",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.8",
+    "sequelize-cli": "^6.6.5",
     "stripe": "^22.6.2",
     "uuid": "^14.0.0",
     "yup": "^1.7.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.13",
-    "sequelize-cli": "^6.6.5"
-  }
+    "@biomejs/biome": "2.4.13"
+  },
+  "packageManager": "pnpm@12.16.1+sha512.091d1dee7927575661b25dab3c2ae31cafc1c54d6b71ed6a6600cf0c1cb10434a447eae14015f1b23e2e6bedeed79df94a932e2164d2832280dce3fb32f656d1"
 }
