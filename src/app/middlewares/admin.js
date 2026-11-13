@@ -5,7 +5,7 @@ const adminMiddleware = (request, response, next) => {
 		return response.status(401).json();
 	}
 
-    return next()
+	return next();
 };
 
 export default adminMiddleware;

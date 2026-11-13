@@ -1,4 +1,4 @@
-const multer  = require('multer');
+const multer = require('multer');
 const { resolve } = require('node:path');
 const { v4 } = require('uuid');
 
@@ -11,9 +11,9 @@ module.exports = {
 	storage: multer.diskStorage({
 		destination: resolve(__dirname, '..', '..', 'uploads'),
 		filename: (_request, file, callback) => {
-            const uniqueName = v4().concat(`-${file.originalname}`)
-            return callback(null, uniqueName)
-        },
+			const uniqueName = v4().concat(`-${file.originalname}`);
+			return callback(null, uniqueName);
+		},
 	}),
 	limits: {
 		fileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
@@ -21,8 +21,12 @@ module.exports = {
 	},
 	fileFilter: (_request, file, callback) => {
 		if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-			const error = new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname);
-			error.message = 'Formato de imagem não permitido. Envie JPG, PNG ou WebP.';
+			const error = new multer.MulterError(
+				'LIMIT_UNEXPECTED_FILE',
+				file.fieldname,
+			);
+			error.message =
+				'Formato de imagem não permitido. Envie JPG, PNG ou WebP.';
 			return callback(error);
 		}
 

@@ -11,11 +11,11 @@ class User extends Model {
 			},
 			{
 				sequelize,
-				tableName: 'users'
+				tableName: 'users',
 			},
 		);
 
-		return this
+		return this;
 	}
 }
 

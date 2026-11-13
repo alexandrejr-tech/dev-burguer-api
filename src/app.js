@@ -1,12 +1,12 @@
 import 'dotenv/config';
+import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import multer from 'multer';
-import routes from './routes.js';
-import fileRouteConfig from './config/fileRoutes.cjs'
+import fileRouteConfig from './config/fileRoutes.cjs';
 import multerConfig from './config/multer.cjs';
 import { generalLimiter } from './config/rateLimit.js';
-import cors from 'cors'
+import routes from './routes.js';
 
 if (!process.env.CORS_ORIGIN) {
 	throw new Error(
@@ -55,21 +55,21 @@ const uploadErrorHandler = (error, _request, response, next) => {
 
 const app = express();
 
-app.set('trust proxy', trustProxyHops)
+app.set('trust proxy', trustProxyHops);
 
-app.use(helmet())
+app.use(helmet());
 // O CORS vem antes dos limitadores, para que a resposta 429 também tenha
 // Access-Control-Allow-Origin e o front consiga ler a mensagem.
-app.use(cors({ origin: allowedOrigins }))
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // As imagens ficam fora do limite geral: só abrir o cardápio carrega dezenas delas.
-app.use('/product-file', allowCrossOriginResource, fileRouteConfig)
-app.use('/category-file', allowCrossOriginResource, fileRouteConfig)
+app.use('/product-file', allowCrossOriginResource, fileRouteConfig);
+app.use('/category-file', allowCrossOriginResource, fileRouteConfig);
 
-app.use(generalLimiter)
+app.use(generalLimiter);
 app.use(routes);
 
-app.use(uploadErrorHandler)
+app.use(uploadErrorHandler);
 
 export default app;

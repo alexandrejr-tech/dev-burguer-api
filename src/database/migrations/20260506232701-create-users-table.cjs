@@ -38,7 +38,7 @@ module.exports = {
 		});
 	},
 
-	async down(queryInterface,) {
+	async down(queryInterface) {
 		await queryInterface.dropTable('users');
 	},
 };

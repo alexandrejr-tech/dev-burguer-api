@@ -1,8 +1,8 @@
-import * as Yup from 'yup';
-import User from '../models/User.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import * as Yup from 'yup';
 import authConfig from './../../config/auth.js';
+import User from '../models/User.js';
 
 class SessionController {
 	async store(request, response) {
@@ -48,9 +48,9 @@ class SessionController {
 		}
 
 		const token = jwt.sign(
-			{ 
-				id: existingUser.id, 
-				admin: existingUser.admin, 
+			{
+				id: existingUser.id,
+				admin: existingUser.admin,
 				name: existingUser.name,
 			},
 			authConfig.secret,

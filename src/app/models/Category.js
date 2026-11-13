@@ -19,7 +19,7 @@ class Category extends Model {
 			},
 		);
 
-		return this
+		return this;
 	}
 }
 

@@ -1,10 +1,10 @@
 import 'dotenv/config';
-import { Sequelize } from 'sequelize';
 import mongoose from 'mongoose';
+import { Sequelize } from 'sequelize';
+import Category from '../app/models/Category.js';
+import Product from '../app/models/Product.js';
 import User from '../app/models/User.js';
 import databaseConfig from '../config/database.cjs';
-import Product from '../app/models/Product.js';
-import Category from '../app/models/Category.js';
 
 if (!process.env.APP_URL) {
 	throw new Error(
@@ -29,9 +29,9 @@ class Database {
 			);
 	}
 
-    mongo(){
-        this.mongooseConnection = mongoose.connect(process.env.MONGO_URL)
-    }
+	mongo() {
+		this.mongooseConnection = mongoose.connect(process.env.MONGO_URL);
+	}
 }
 
 export default new Database();

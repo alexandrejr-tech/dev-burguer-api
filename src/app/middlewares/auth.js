@@ -16,14 +16,14 @@ const authMiddleware = (request, response, next) => {
 				throw Error();
 			}
 
-            request.userId = decoded.id;
+			request.userId = decoded.id;
 			request.userName = decoded.name;
-			request.userIsAdmin = decoded.admin
+			request.userIsAdmin = decoded.admin;
 		});
 	} catch (_error) {
 		return response.status(401).json({ error: 'Token is invalid' });
 	}
-    return next()
+	return next();
 };
 
 export default authMiddleware;
