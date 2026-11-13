@@ -10,13 +10,14 @@ import CategoryController from './app/controllers/CategoryController.js';
 import OrderController from './app/controllers/OrderController.js';
 import CreatePaymentIntentController from './app/controllers/stripe/CreatePaymentIntentController.js'
 import DeliveryFeeController from './app/controllers/DeliveryFeeController.js';
+import { loginLimiter, paymentIntentLimiter, registerLimiter } from './config/rateLimit.js';
 
 const routes = new Router();
 
 const upload = multer(multerConfig)
 
-routes.post('/users', UserController.store);
-routes.post('/sessions', SessionController.store);
+routes.post('/users', registerLimiter, UserController.store);
+routes.post('/sessions', loginLimiter, SessionController.store);
 routes.get('/delivery-fee', DeliveryFeeController.index);
 
 routes.use(authMiddleware);
@@ -35,6 +36,6 @@ routes.put('/orders/:id', adminMiddleware, OrderController.update);
 
 
 
-routes.post("/create-payment-intent", CreatePaymentIntentController.store);
+routes.post("/create-payment-intent", paymentIntentLimiter, CreatePaymentIntentController.store);
 
 export default routes;
