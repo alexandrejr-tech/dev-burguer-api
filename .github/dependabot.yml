@@ -12,7 +12,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: '09:00'
+      time: "09:00"
       timezone: America/Sao_Paulo
     # Só propõe versões publicadas há pelo menos 3 dias: dá tempo de um pacote
     # malicioso ou quebrado ser removido do npm antes de chegar aqui.
@@ -30,13 +30,13 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: '09:00'
+      time: "09:00"
       timezone: America/Sao_Paulo
     cooldown:
       default-days: 3
     groups:
       actions:
-        patterns: ['*']
+        patterns: ["*"]
 
   # Imagens base do Dockerfile (atualiza o digest quando a tag ganha uma versão nova).
   - package-ecosystem: docker
@@ -44,7 +44,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: '09:00'
+      time: "09:00"
       timezone: America/Sao_Paulo
     ignore:
       # Troca de versão major do Node é decisão manual (ex.: 22 -> 24).

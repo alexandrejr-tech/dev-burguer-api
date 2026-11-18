@@ -13,12 +13,12 @@ name: CI/CD
 on:
   push:
     # Só branches; push de tag não dispara.
-    branches: ['**']
+    branches: ["**"]
   pull_request:
   # Toda segunda às 9h (Brasília): novas vulnerabilidades aparecem mesmo sem commits.
   # Não faz deploy (o deploy só roda em push).
   schedule:
-    - cron: '0 12 * * 1'
+    - cron: "0 12 * * 1"
 
 # O token automático do GitHub só pode ler o código.
 permissions:
@@ -82,7 +82,7 @@ jobs:
       # false: só reporta. true: vulnerabilidades da política bloqueiam o deploy.
       enforce: true
       # PROJETO: build args do Dockerfile (a API não usa nenhum).
-      image-build-args: ''
+      image-build-args: ""
 
   deploy:
     # Só roda se o job ci e as verificações de segurança passaram...

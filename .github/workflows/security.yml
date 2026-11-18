@@ -26,7 +26,7 @@ on:
       image-build-args:
         description: Build args do Dockerfile, um KEY=VALUE por linha (valores falsos, só para o build do CI).
         type: string
-        default: ''
+        default: ""
 
 permissions:
   contents: read
@@ -166,13 +166,14 @@ jobs:
           { echo "### Auditoria de dependências ($cmd)"; echo '```'; echo "$output" | tail -n 40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       # Base de vulnerabilidades do Trivy: baixada uma vez por dia e reaproveitada.
+      # Só a pasta db/ vai para o cache (a análise da imagem muda a cada build).
       - name: Data de hoje (chave do cache)
         id: date
         run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/trivy-cache
+          path: ${{ runner.temp }}/trivy-cache/db
           key: trivy-db-${{ steps.date.outputs.today }}
           restore-keys: trivy-db-
 
@@ -250,6 +251,13 @@ jobs:
             exit 1
           fi
           echo "::warning::$msg (modo relatório, não bloqueia)"
+
+      # O Trivy roda como root no container, então os arquivos do cache ficam com
+      # dono root. Devolve a pasta ao usuário do runner para o actions/cache
+      # conseguir salvá-la no fim do job.
+      - name: Liberar o cache do Trivy
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" "$TRIVY_CACHE" || true
 
   secrets:
     name: Segredos (Gitleaks)

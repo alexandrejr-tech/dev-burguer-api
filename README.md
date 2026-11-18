@@ -11,16 +11,16 @@ Construída com **Node.js + Express 5**, usando dois bancos ao mesmo tempo:
 
 ## Stack
 
-| Camada | Ferramenta |
-| --- | --- |
-| Servidor HTTP | Express 5 |
-| Banco relacional | PostgreSQL + Sequelize 6 (`sequelize-cli` para migrations) |
-| Banco de documentos | MongoDB + Mongoose 9 |
-| Autenticação | JWT (`jsonwebtoken`) + `bcrypt` |
-| Validação | Yup |
-| Upload de arquivos | Multer (disco local, nome gerado com `uuid`) |
-| Lint / format | Biome |
-| Gerenciador de pacotes | pnpm |
+| Camada                 | Ferramenta                                                 |
+| ---------------------- | ---------------------------------------------------------- |
+| Servidor HTTP          | Express 5                                                  |
+| Banco relacional       | PostgreSQL + Sequelize 6 (`sequelize-cli` para migrations) |
+| Banco de documentos    | MongoDB + Mongoose 9                                       |
+| Autenticação           | JWT (`jsonwebtoken`) + `bcrypt`                            |
+| Validação              | Yup                                                        |
+| Upload de arquivos     | Multer (disco local, nome gerado com `uuid`)               |
+| Lint / format          | Biome                                                      |
+| Gerenciador de pacotes | pnpm                                                       |
 
 ---
 
@@ -111,10 +111,10 @@ O [middleware de auth](src/app/middlewares/auth.js) valida o token e injeta `req
 
 ```json
 {
-  "name": "Nome do Usuário",
-  "email": "usuario@email.com",
-  "password": "suaSenhaSegura",
-  "admin": true
+	"name": "Nome do Usuário",
+	"email": "usuario@email.com",
+	"password": "suaSenhaSegura",
+	"admin": true
 }
 ```
 
@@ -124,8 +124,8 @@ O [middleware de auth](src/app/middlewares/auth.js) valida o token e injeta `req
 
 ```json
 {
-  "email": "usuario@email.com",
-  "password": "suaSenhaSegura"
+	"email": "usuario@email.com",
+	"password": "suaSenhaSegura"
 }
 ```
 
@@ -139,13 +139,13 @@ Lista todos os produtos com a categoria associada (`id` e `name`). Cada produto 
 
 #### `POST /products` — admin · `multipart/form-data`
 
-| Campo | Tipo | Obrigatório |
-| --- | --- | --- |
-| `name` | string | sim |
-| `price` | number (centavos) | sim |
-| `category_id` | number | sim |
-| `offer` | boolean | não |
-| `file` | arquivo (imagem) | sim |
+| Campo         | Tipo              | Obrigatório |
+| ------------- | ----------------- | ----------- |
+| `name`        | string            | sim         |
+| `price`       | number (centavos) | sim         |
+| `category_id` | number            | sim         |
+| `offer`       | boolean           | não         |
+| `file`        | arquivo (imagem)  | sim         |
 
 #### `PUT /products/:id` — admin · `multipart/form-data`
 
@@ -171,10 +171,7 @@ Lista as categorias, cada uma com a `url` pública da imagem.
 
 ```json
 {
-  "products": [
-    { "id": 1, "quantity": 2 },
-    { "id": 4, "quantity": 1 }
-  ]
+	"products": [{ "id": 1, "quantity": 2 }, { "id": 4, "quantity": 1 }]
 }
 ```
 
