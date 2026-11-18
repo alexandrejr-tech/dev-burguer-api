@@ -1,0 +1,288 @@
+# Verificações de segurança (SSDLC), chamadas pelo ci-cd.yml antes do deploy.
+#
+#   sast     CodeQL: análise estática do código e dos workflows
+#   sca      auditoria de dependências (pnpm/yarn/npm) + Trivy no lockfile e na imagem Docker
+#   secrets  Gitleaks em todo o histórico do Git
+#
+# Os resultados vão para a aba Security > Code scanning do repositório.
+#
+# Política de bloqueio (só quando enforce = true):
+#   CodeQL   alertas abertos de severidade critical ou high neste commit
+#   Trivy    CRITICAL e HIGH com correção disponível (dependências de produção e imagem)
+#   Gitleaks qualquer segredo encontrado
+# O resto é só reportado. Exceções: .trivyignore.yaml (com data de expiração) e
+# .gitleaksignore (fingerprint, só depois de trocar o segredo).
+#
+# Este arquivo é igual em todos os projetos: o que muda vai nos inputs, no ci-cd.yml.
+name: Security
+
+on:
+  workflow_call:
+    inputs:
+      enforce:
+        description: true bloqueia o pipeline; false só reporta.
+        type: boolean
+        default: false
+      image-build-args:
+        description: Build args do Dockerfile, um KEY=VALUE por linha (valores falsos, só para o build do CI).
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  # Imagens das ferramentas fixadas por digest: o conteúdo nunca muda sem um commit aqui.
+  TRIVY_IMAGE: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  ENFORCE: ${{ inputs.enforce }}
+  # PR de fork não tem permissão para enviar resultados à aba Security.
+  CAN_UPLOAD: ${{ github.event.pull_request.head.repo.fork != true }}
+
+jobs:
+  sast:
+    name: SAST (CodeQL ${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # actions: analisa os próprios workflows (injeção de comandos, permissões etc.).
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - name: Analisar
+        id: analyze
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:${{ matrix.language }}
+          upload: ${{ env.CAN_UPLOAD == 'true' && 'always' || 'never' }}
+
+      # Consulta a API de alertas (e não o arquivo bruto) para respeitar os falsos
+      # positivos marcados como "Dismissed" na aba Security.
+      - name: Política de bloqueio (critical/high)
+        if: env.CAN_UPLOAD == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SARIF_ID: ${{ steps.analyze.outputs.sarif-id }}
+          CATEGORY: /language:${{ matrix.language }}
+        run: |
+          # 1. Espera o GitHub terminar de processar a análise deste commit.
+          for _ in $(seq 1 30); do
+            status=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/sarifs/$SARIF_ID" --jq .processing_status)
+            [ "$status" = "complete" ] && break
+            if [ "$status" = "failed" ]; then
+              echo "::error::O GitHub não conseguiu processar a análise do CodeQL."
+              exit 1
+            fi
+            sleep 10
+          done
+          if [ "$status" != "complete" ]; then
+            echo "::error::A análise do CodeQL não foi processada a tempo."
+            exit 1
+          fi
+
+          # 2. Alertas abertos neste ref, desta categoria, presentes no commit analisado.
+          alerts=$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/code-scanning/alerts?ref=$GITHUB_REF&state=open&tool_name=CodeQL&per_page=100" \
+            --jq "[.[] | select(.most_recent_instance.commit_sha == \"$GITHUB_SHA\"
+                            and .most_recent_instance.category == \"$CATEGORY\"
+                            and (.rule.security_severity_level == \"critical\" or .rule.security_severity_level == \"high\"))
+                       | \"\(.rule.security_severity_level) | \(.rule.id) | \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line) | \(.html_url)\"] | .[]")
+
+          if [ -z "$alerts" ]; then
+            echo "Nenhum alerta critical/high aberto."
+            exit 0
+          fi
+
+          echo "$alerts"
+          { echo "### CodeQL ($CATEGORY): alertas critical/high"; echo '```'; echo "$alerts"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$ENFORCE" = "true" ]; then
+            echo "::error::CodeQL encontrou alertas critical/high. Corrija ou marque como falso positivo (Dismissed) na aba Security."
+            exit 1
+          fi
+          echo "::warning::CodeQL encontrou alertas critical/high (modo relatório, não bloqueia)."
+
+  sca:
+    name: SCA (dependências e imagem)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Cache e relatórios do Trivy ficam fora da pasta do projeto, para não
+      # entrarem no contexto do docker build.
+      - name: Pastas temporárias
+        run: |
+          echo "TRIVY_CACHE=$RUNNER_TEMP/trivy-cache" >> "$GITHUB_ENV"
+          echo "RESULTS=$RUNNER_TEMP/trivy-results" >> "$GITHUB_ENV"
+
+      # Primeiro passo depois do checkout: a imagem é construída com o código limpo,
+      # igual ao build do Dokploy (as imagens base estão fixadas por digest no Dockerfile).
+      - name: Build da imagem Docker
+        env:
+          BUILD_ARGS: ${{ inputs.image-build-args }}
+        run: |
+          args=()
+          while IFS= read -r line; do
+            [ -n "$line" ] && args+=(--build-arg "$line")
+          done <<< "$BUILD_ARGS"
+          docker build "${args[@]}" --tag app:security-scan .
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      # Auditoria nativa do gerenciador de pacotes: só informa, no resumo do job.
+      # (pnpm e yarn não filtram "só com correção disponível"; quem bloqueia é o Trivy.)
+      - name: Auditoria de dependências (relatório)
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+        run: |
+          corepack enable
+          if [ -f pnpm-lock.yaml ]; then
+            cmd="pnpm audit"
+          elif [ -f yarn.lock ]; then
+            cmd="yarn npm audit --all --recursive"
+          else
+            cmd="npm audit"
+          fi
+          echo "Rodando: $cmd"
+          output=$($cmd 2>&1) || true
+          echo "$output"
+          { echo "### Auditoria de dependências ($cmd)"; echo '```'; echo "$output" | tail -n 40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      # Base de vulnerabilidades do Trivy: baixada uma vez por dia e reaproveitada.
+      - name: Data de hoje (chave do cache)
+        id: date
+        run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/trivy-cache
+          key: trivy-db-${{ steps.date.outputs.today }}
+          restore-keys: trivy-db-
+
+      - name: Preparar Trivy
+        run: |
+          mkdir -p "$TRIVY_CACHE" "$RESULTS"
+          # Exceções aceitas (com data de expiração). Sem o arquivo, usa uma lista vazia.
+          if [ -f .trivyignore.yaml ]; then
+            cp .trivyignore.yaml "$RESULTS/trivyignore.yaml"
+          else
+            echo "vulnerabilities: []" > "$RESULTS/trivyignore.yaml"
+          fi
+          docker pull --quiet "$TRIVY_IMAGE"
+
+      - name: Trivy no lockfile
+        id: dependencies
+        run: |
+          trivy() {
+            docker run --rm -v "$PWD:/src:ro" -v "$TRIVY_CACHE:/root/.cache/trivy" -v "$RESULTS:/out" \
+              -w /src "$TRIVY_IMAGE" "$@"
+          }
+          # Relatório completo (inclui dependências de desenvolvimento) para a aba Security.
+          trivy fs . --scanners vuln --include-dev-deps --skip-dirs node_modules \
+            --format sarif --output /out/dependencies.sarif --quiet
+          echo "sarif=true" >> "$GITHUB_OUTPUT"
+
+          # Política: CRITICAL/HIGH com correção, só dependências de produção.
+          if ! trivy fs . --scanners vuln --skip-dirs node_modules \
+            --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /out/trivyignore.yaml \
+            --exit-code 1 --format table --quiet; then
+            echo "TRIVY_DEPENDENCIES=falhou" >> "$GITHUB_ENV"
+          fi
+
+      - name: Trivy na imagem
+        id: image
+        run: |
+          trivy() {
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$TRIVY_CACHE:/root/.cache/trivy" -v "$RESULTS:/out" "$TRIVY_IMAGE" "$@"
+          }
+          trivy image app:security-scan --scanners vuln \
+            --format sarif --output /out/image.sarif --quiet
+          echo "sarif=true" >> "$GITHUB_OUTPUT"
+
+          if ! trivy image app:security-scan --scanners vuln \
+            --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /out/trivyignore.yaml \
+            --exit-code 1 --format table --quiet; then
+            echo "TRIVY_IMAGE_RESULT=falhou" >> "$GITHUB_ENV"
+          fi
+
+      - name: Enviar dependências para a aba Security
+        if: always() && env.CAN_UPLOAD == 'true' && steps.dependencies.outputs.sarif == 'true'
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: ${{ runner.temp }}/trivy-results/dependencies.sarif
+          category: trivy-dependencies
+
+      - name: Enviar imagem para a aba Security
+        if: always() && env.CAN_UPLOAD == 'true' && steps.image.outputs.sarif == 'true'
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: ${{ runner.temp }}/trivy-results/image.sarif
+          category: trivy-image
+
+      - name: Política de bloqueio (CRITICAL/HIGH com correção)
+        run: |
+          problems="${TRIVY_DEPENDENCIES:+ dependências}${TRIVY_IMAGE_RESULT:+ imagem}"
+          if [ -z "$problems" ]; then
+            echo "Nenhuma vulnerabilidade CRITICAL/HIGH com correção."
+            exit 0
+          fi
+          msg="Trivy encontrou CRITICAL/HIGH com correção em:$problems. Veja a tabela nos passos acima."
+          if [ "$ENFORCE" = "true" ]; then
+            echo "::error::$msg"
+            exit 1
+          fi
+          echo "::warning::$msg (modo relatório, não bloqueia)"
+
+  secrets:
+    name: Segredos (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Histórico completo: um segredo apagado do código continua nos commits antigos.
+          fetch-depth: 0
+
+      - name: Gitleaks no histórico
+        run: |
+          # --redact: o valor do segredo nunca aparece no log nem no relatório.
+          # O .gitleaksignore da raiz do repositório é lido automaticamente.
+          if docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/repo" -w /repo "$GITLEAKS_IMAGE" \
+            git /repo --redact --no-banner \
+            --report-format sarif --report-path /repo/gitleaks.sarif; then
+            echo "Nenhum segredo encontrado."
+            exit 0
+          fi
+          if [ "$ENFORCE" = "true" ]; then
+            echo "::error::Gitleaks encontrou segredos. Troque o segredo e só então registre o fingerprint no .gitleaksignore."
+            exit 1
+          fi
+          echo "::warning::Gitleaks encontrou segredos (modo relatório, não bloqueia)."
+
+      - name: Enviar para a aba Security
+        if: always() && env.CAN_UPLOAD == 'true' && hashFiles('gitleaks.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks

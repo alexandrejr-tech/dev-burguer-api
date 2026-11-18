@@ -1,0 +1,10 @@
+# Exceções aceitas na política do Trivy (security.yml).
+# Cada exceção precisa de um motivo e de uma data de expiração: depois dela,
+# a vulnerabilidade volta a bloquear o deploy e precisa ser revista.
+#
+# Exemplo:
+# vulnerabilities:
+#   - id: CVE-0000-00000
+#     statement: Módulo afetado não é usado pela aplicação (motivo).
+#     expired_at: 2026-12-31
+vulnerabilities: []

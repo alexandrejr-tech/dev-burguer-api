@@ -1,0 +1,52 @@
+# Dependabot: PRs semanais com atualizações de dependências.
+# Correções de segurança chegam a qualquer momento, pelos "Dependabot security updates"
+# ligados em Settings > Advanced Security (e não esperam o cooldown).
+#
+# Igual em todos os projetos Node com Dockerfile.
+version: 2
+
+updates:
+  # Pacotes do package.json (pnpm, yarn ou npm: o Dependabot detecta pelo lockfile).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Sao_Paulo
+    # Só propõe versões publicadas há pelo menos 3 dias: dá tempo de um pacote
+    # malicioso ou quebrado ser removido do npm antes de chegar aqui.
+    cooldown:
+      default-days: 3
+    # Patch e minor num único PR; major continua em PR separado, para revisar com calma.
+    groups:
+      dependencias:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  # Versões das GitHub Actions (atualiza o SHA fixado e o comentário com a versão).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Sao_Paulo
+    cooldown:
+      default-days: 3
+    groups:
+      actions:
+        patterns: ['*']
+
+  # Imagens base do Dockerfile (atualiza o digest quando a tag ganha uma versão nova).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Sao_Paulo
+    ignore:
+      # Troca de versão major do Node é decisão manual (ex.: 22 -> 24).
+      - dependency-name: node
+        update-types: [version-update:semver-major]

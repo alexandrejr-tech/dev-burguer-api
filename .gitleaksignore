@@ -1,0 +1,6 @@
+# Achados do Gitleaks aceitos. Cada linha é um fingerprint: commit:arquivo:regra:linha.
+# Só entra aqui um segredo que JÁ FOI TROCADO (o valor antigo não vale mais nada).
+
+# JWT secret antigo, fixo no código antes da Correção 1 (commit 67c8aca moveu para
+# variável de ambiente). O secret de produção é outro. Revisado em 2026-11-18.
+341907d8138554ad8ffeadea33589ebc86470a8e:src/config/auth.js:generic-api-key:2
