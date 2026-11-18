@@ -80,7 +80,7 @@ jobs:
     uses: ./.github/workflows/security.yml
     with:
       # false: só reporta. true: vulnerabilidades da política bloqueiam o deploy.
-      enforce: false
+      enforce: true
       # PROJETO: build args do Dockerfile (a API não usa nenhum).
       image-build-args: ''
 
